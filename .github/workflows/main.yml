@@ -1,0 +1,27 @@
+name: Zeta Check EXE Uretici
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Kodları Çek
+      uses: actions/checkout@v4
+
+    - name: .NET 8 Kur
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Tek Bir EXE Olarak Derle
+      run: dotnet publish ZetaCheckCore.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./cikti
+
+    - name: EXE'yi İndirilebilir Yap
+      uses: actions/upload-artifact@v4
+      with:
+        name: ZetaCheck-Windows-EXE
+        path: ./cikti/
