@@ -15,7 +15,8 @@ namespace ZetaCheckCore
         private const int Ds4V1ProductId = 0x05C4;
         private const int Ds4V2ProductId = 0x09CC;
         
-        private HidDevice ds4Device;
+        // HATA ÇÖZÜMÜ 1: Sonuna '?' koyarak Null (boş) olabileceğini belirttik
+        private HidDevice? ds4Device;
 
         public MainWindow()
         {
@@ -27,19 +28,18 @@ namespace ZetaCheckCore
         {
             await webView.EnsureCoreWebView2Async(null);
 
-            // HTML dosyasının yolunu bul ve WebView'a yükle
             string htmlPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "index.html");
             webView.CoreWebView2.Navigate(htmlPath);
 
-            // HTML'den gelen sürükleme ve kapatma komutlarını dinle
             webView.CoreWebView2.WebMessageReceived += WebView_WebMessageReceived;
 
             StartGamepadReader();
         }
 
-        private void WebView_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
+        // HATA ÇÖZÜMÜ 2: object parametresinin yanına '?' ekledik (object? sender)
+        private void WebView_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
         {
-            string message = e.TryGetWebMessageAsString();
+            string? message = e.TryGetWebMessageAsString();
             
             if (message == "close")
             {
