@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zeta Check - Pro Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; user-select: none; }
+        .nav-item { transition: all 0.2s ease; }
+        .nav-item.active { background-color: #fff3eb; color: #ff6b00; font-weight: 700; box-shadow: inset 3px 0 0 0 #ff6b00; }
+        .nav-item.active svg { stroke: #ff6b00; }
+        .battery-level-bar { background: linear-gradient(90deg, #ff6b00 0%, #ff8e3c 100%); box-shadow: 0 0 15px rgba(255, 107, 0, 0.4); transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
+        .toggle-checkbox:checked { right: 0; border-color: #ff6b00; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #ff6b00; }
+        .analog-container { width: 130px; height: 130px; border-radius: 50%; background: #f1f2f4; border: 2px solid #e5e7eb; position: relative; box-shadow: inset 0 6px 15px rgba(0,0,0,0.06); }
+        .analog-stick { width: 44px; height: 44px; background: #ff6b00; border-radius: 50%; position: absolute; top: 50%; left: 50%; margin-top: -22px; margin-left: -22px; box-shadow: 0 6px 16px rgba(255, 107, 0, 0.4); }
+        .trigger-container { width: 44px; height: 160px; background: #f1f2f4; border-radius: 22px; overflow: hidden; position: relative; border: 2px solid #e5e7eb; box-shadow: inset 0 4px 10px rgba(0,0,0,0.04); }
+        .trigger-fill { position: absolute; bottom: 0; left: 0; right: 0; top: 0; background: #111; transform-origin: bottom; transform: scaleY(0); }
+        .button-indicator { transition: background-color 0.05s, color 0.05s, transform 0.05s; }
+        .button-pressed { background: #ff6b00 !important; color: white !important; transform: scale(0.92); box-shadow: 0 0 20px rgba(255, 107, 0, 0.4); }
+        .button-pressed svg { stroke: white !important; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-[#f8f9fb] h-screen overflow-hidden text-gray-800 flex flex-col">
+
+    <header class="drag-area flex items-center justify-between h-14 px-6 flex-shrink-0 bg-[#f8f9fb] z-30 relative cursor-move">
+        <div class="flex items-center space-x-3 font-extrabold text-lg tracking-wider pointer-events-none">
+            <svg class="w-6 h-6 text-orange-500" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+            <span>ZETA CHECK</span>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div id="connection-status" class="flex items-center space-x-2 bg-red-100 text-red-600 text-[13px] font-bold px-4 py-1.5 rounded-full transition-colors cursor-default">
+                <div class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
+                <span id="status-text">Bağlantı Bekleniyor...</span>
+            </div>
+            <button id="close-btn" class="text-gray-400 hover:text-red-500 transition z-50 cursor-pointer">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <div id="global-waiting-screen" class="flex-1 flex flex-col items-center justify-center bg-[#f8f9fb] z-50">
+        <div class="w-32 h-32 mb-8 text-gray-300 animate-pulse">
+            <svg fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>
+        </div>
+        <h2 class="text-3xl font-extrabold text-gray-800 mb-3 tracking-tight">Cihazınızı Bağlayın</h2>
+        <p class="text-gray-500 text-sm font-medium mb-8 text-center max-w-md">Uygulamayı kullanabilmek için desteklenen bir kontrolcüyü sisteme bağlayın ve tanınması için bir tuşa basın.</p>
+    </div>
+
+    <div id="dashboard-layout" class="hidden flex-1 overflow-hidden">
+        <aside class="w-64 bg-white flex flex-col z-20 flex-shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+            <div class="p-6 flex-1 overflow-y-auto">
+                <h3 class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4 px-2">Cihaz Yönetimi</h3>
+                <nav class="space-y-1 mb-8">
+                    <button onclick="switchTab('test-tab')" id="nav-test-tab" class="nav-item active w-full flex items-center space-x-3 text-gray-500 hover:bg-gray-50 hover:text-gray-900 px-4 py-3 rounded-xl font-medium"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"></path></svg><span>Donanım Testi</span></button>
+                    <button onclick="switchTab('settings-tab')" id="nav-settings-tab" class="nav-item w-full flex items-center space-x-3 text-gray-500 hover:bg-gray-50 hover:text-gray-900 px-4 py-3 rounded-xl font-medium"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg><span>Tuş Atamaları</span></button>
+                </nav>
+                <h3 class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4 px-2">Sistem</h3>
+                <nav class="space-y-1">
+                    <button onclick="switchTab('battery-tab')" id="nav-battery-tab" class="nav-item w-full flex items-center space-x-3 text-gray-500 hover:bg-gray-50 hover:text-gray-900 px-4 py-3 rounded-xl font-medium"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg><span>Güç ve Batarya</span></button>
+                </nav>
+            </div>
+            <div class="p-4 border-t border-gray-100 flex items-center space-x-3 bg-gray-50">
+                <div class="w-10 h-10 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center font-bold">ZL</div>
+                <div><div class="text-sm font-bold text-gray-800">ZetaLabs</div><div class="text-[10px] text-gray-400 uppercase tracking-widest">v1.0.0 Build</div></div>
+            </div>
+        </aside>
+
+        <main class="flex-1 relative bg-[#f8f9fb] overflow-y-auto">
+            <div id="test-tab" class="absolute inset-0 flex flex-col p-8 tab-content overflow-y-auto">
+                <div class="w-full max-w-[1200px] mx-auto">
+                    <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 mb-8 flex justify-between items-center">
+                        <div class="flex items-center space-x-4"><div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-gray-500"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+                        <div><h2 id="device-name" class="text-xl font-extrabold text-gray-900">Bilinmeyen Cihaz</h2><p class="text-gray-400 text-sm font-medium mt-0.5">Gerçek Zamanlı Donanım Testi Aktif</p></div></div>
+                        <div class="text-right bg-[#f8f9fb] px-5 py-3 rounded-2xl border border-gray-100"><div class="text-[11px] text-gray-400 font-bold uppercase tracking-widest mb-1">Gerçek Polling Rate</div><div class="flex items-center justify-end space-x-1.5"><div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div><div id="polling-rate" class="text-2xl font-black text-gray-800">0 Hz</div></div></div>
+                    </div>
+                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                        <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100 flex flex-col items-center">
+                            <h3 class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-8">Sol Analog & L2</h3>
+                            <div class="flex space-x-10 items-center mb-10">
+                                <div class="flex flex-col items-center space-y-4"><div class="trigger-container"><div id="l2-fill" class="trigger-fill"></div></div><span class="text-xs font-black text-gray-400 tracking-wider" id="l2-value">0.00</span></div>
+                                <div class="flex flex-col items-center space-y-4"><div class="analog-container"><div id="left-stick" class="analog-stick"></div></div><span class="text-[11px] font-bold text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full" id="ls-value">X: 0.00 | Y: 0.00</span></div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 mt-2">
+                                <div></div><div id="btn-12" class="button-indicator w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500 shadow-inner"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4l-8 8h16z"/></svg></div><div></div>
+                                <div id="btn-14" class="button-indicator w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500 shadow-inner"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M4 12l8-8v16z"/></svg></div><div></div><div id="btn-15" class="button-indicator w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500 shadow-inner"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20 12l-8-8v16z"/></svg></div>
+                                <div></div><div id="btn-13" class="button-indicator w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500 shadow-inner"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 20l8-8H4z"/></svg></div><div></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100 flex flex-col items-center justify-center relative overflow-hidden">
+                            <h3 class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-10 z-10">Aksiyon Tuşları</h3>
+                            <div class="grid grid-cols-3 gap-5 z-10">
+                                <div></div><div id="btn-3" class="button-indicator w-16 h-16 bg-[#f4f5f7] rounded-full flex items-center justify-center text-gray-500 shadow-inner"><svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="12,3 22,20 2,20" stroke-linejoin="round"/></svg></div><div></div>
+                                <div id="btn-2" class="button-indicator w-16 h-16 bg-[#f4f5f7] rounded-full flex items-center justify-center text-gray-500 shadow-inner"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" stroke-linejoin="round"/></svg></div><div></div><div id="btn-1" class="button-indicator w-16 h-16 bg-[#f4f5f7] rounded-full flex items-center justify-center text-gray-500 shadow-inner"><svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></div>
+                                <div></div><div id="btn-0" class="button-indicator w-16 h-16 bg-[#f4f5f7] rounded-full flex items-center justify-center text-gray-500 shadow-inner"><svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></div><div></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100 flex flex-col items-center">
+                            <h3 class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-8">Sağ Analog & R2</h3>
+                            <div class="flex space-x-10 items-center mb-10">
+                                <div class="flex flex-col items-center space-y-4"><div class="analog-container"><div id="right-stick" class="analog-stick"></div></div><span class="text-[11px] font-bold text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full" id="rs-value">X: 0.00 | Y: 0.00</span></div>
+                                <div class="flex flex-col items-center space-y-4"><div class="trigger-container"><div id="r2-fill" class="trigger-fill"></div></div><span class="text-xs font-black text-gray-400 tracking-wider" id="r2-value">0.00</span></div>
+                            </div>
+                            <div class="flex space-x-6 mt-2">
+                                <div id="btn-4" class="button-indicator w-20 h-12 bg-gray-100 rounded-t-2xl rounded-b-md flex items-center justify-center font-black text-gray-400 text-lg shadow-inner">L1</div>
+                                <div id="btn-5" class="button-indicator w-20 h-12 bg-gray-100 rounded-t-2xl rounded-b-md flex items-center justify-center font-black text-gray-400 text-lg shadow-inner">R1</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="battery-tab" class="absolute inset-0 hidden flex-col p-8 tab-content overflow-y-auto">
+                <div class="w-full max-w-[1000px] mx-auto">
+                    <h2 class="text-3xl font-extrabold text-gray-900 mb-8">Güç ve Batarya Yapılandırması</h2>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-2 bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
+                            <div class="flex justify-between items-start mb-8">
+                                <div><h3 class="text-lg font-bold text-gray-800">Mevcut Durum</h3><p class="text-sm text-gray-400 mt-1" id="connection-type-text">Veri Bekleniyor...</p></div>
+                                <div id="battery-status-badge" class="bg-gray-100 text-gray-500 px-3 py-1 rounded-lg text-xs font-bold"><span>--</span></div>
+                            </div>
+                            <div class="flex items-end space-x-6 mb-6"><span class="text-7xl font-black text-gray-900"><span id="battery-percent-text">--</span><span class="text-4xl text-gray-400">%</span></span></div>
+                            <div class="w-full bg-gray-100 rounded-full h-4 mb-2 overflow-hidden"><div id="battery-level-bar" class="battery-level-bar h-4 rounded-full" style="width: 0%"></div></div>
+                        </div>
+                        <div class="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 flex flex-col justify-center">
+                            <h3 class="text-[11px] font-bold text-gray-400 uppercase mb-6">Donanım Verileri</h3>
+                            <div class="space-y-6">
+                                <div class="flex justify-between"><span class="text-sm font-semibold">Pil Sağlığı</span><span id="battery-health-text" class="text-sm font-bold text-green-500">--</span></div>
+                                <div class="flex justify-between"><span class="text-sm font-semibold">Hücre Voltajı</span><span id="cell-voltage-text" class="text-sm font-bold text-gray-800">-- V</span></div>
+                                <div class="flex justify-between"><span class="text-sm font-semibold">Şarj Döngüsü</span><span id="charge-cycle-text" class="text-sm font-bold text-gray-800">--</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="settings-tab" class="absolute inset-0 hidden flex-col p-8 tab-content"><div class="bg-white rounded-3xl p-8 shadow-sm flex-1 flex items-center justify-center"><h3 class="text-xl font-bold text-gray-700">Ayarlar Yapım Aşamasında</h3></div></div>
+        </main>
+    </div>
+
+    <script>
+        document.querySelector('.drag-area').addEventListener('mousedown', (e) => {
+            if (!e.target.closest('#close-btn') && !e.target.closest('#connection-status')) {
+                window.chrome.webview.postMessage('drag');
+            }
+        });
+        
+        document.getElementById('close-btn').addEventListener('click', () => window.chrome.webview.postMessage('close'));
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(t => { t.classList.add('hidden'); t.classList.remove('flex'); });
+            document.getElementById(tabId).classList.remove('hidden'); document.getElementById(tabId).classList.add('flex');
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            document.getElementById('nav-' + tabId).classList.add('active');
+        }
+
+        let gamepadIndex = null; let animationFrameId = null; let lastTimestamp = 0; let pollCount = 0; let lastTime = performance.now();
+        window.addEventListener('gamepadconnected', (e) => {
+            gamepadIndex = e.gamepad.index;
+            document.getElementById('global-waiting-screen').classList.replace('flex', 'hidden');
+            document.getElementById('dashboard-layout').classList.replace('hidden', 'flex');
+            document.getElementById('connection-status').classList.replace('bg-red-100', 'bg-green-100');
+            document.getElementById('connection-status').classList.replace('text-red-600', 'text-green-600');
+            document.querySelector('#connection-status div').classList.replace('bg-red-500', 'bg-green-500');
+            document.getElementById('status-text').innerText = 'Cihaz Bağlı';
+            document.getElementById('device-name').innerText = e.gamepad.id.split('(')[0].trim();
+            switchTab('test-tab');
+            updateGamepadLoop();
+        });
+
+        window.addEventListener('gamepaddisconnected', (e) => {
+            if (e.gamepad.index === gamepadIndex) {
+                gamepadIndex = null; cancelAnimationFrame(animationFrameId);
+                document.getElementById('dashboard-layout').classList.replace('flex', 'hidden');
+                document.getElementById('global-waiting-screen').classList.replace('hidden', 'flex');
+                document.getElementById('connection-status').classList.replace('bg-green-100', 'bg-red-100');
+                document.getElementById('connection-status').classList.replace('text-green-600', 'text-red-600');
+                document.querySelector('#connection-status div').classList.replace('bg-green-500', 'bg-red-500');
+                document.getElementById('status-text').innerText = 'Bağlantı Bekleniyor...';
+            }
+        });
+
+        function updateGamepadLoop() {
+            if (gamepadIndex === null) return;
+            const gp = navigator.getGamepads()[gamepadIndex];
+            if (gp) {
+                if (gp.timestamp !== lastTimestamp) { pollCount++; lastTimestamp = gp.timestamp; }
+                const now = performance.now();
+                if (now - lastTime >= 1000) { document.getElementById('polling-rate').innerText = `${pollCount} Hz`; pollCount = 0; lastTime = now; }
+
+                gp.buttons.forEach((button, i) => { const el = document.getElementById(`btn-${i}`); if (el) button.pressed ? el.classList.add('button-pressed') : el.classList.remove('button-pressed'); });
+
+                let dU=false, dD=false, dL=false, dR=false;
+                if(gp.buttons[12]?.pressed) dU=true; if(gp.buttons[13]?.pressed) dD=true; if(gp.buttons[14]?.pressed) dL=true; if(gp.buttons[15]?.pressed) dR=true;
+                if(gp.axes.length > 9) {
+                    let pov = gp.axes[9].toFixed(2);
+                    if(pov === '-1.00') dU=true; else if(pov === '-0.71') {dU=true; dR=true;} else if(pov === '-0.43' || pov === '-0.42') dR=true;
+                    else if(pov === '-0.14') {dD=true; dR=true;} else if(pov === '0.14') dD=true; else if(pov === '0.43' || pov === '0.42') {dD=true; dL=true;}
+                    else if(pov === '0.71') dL=true; else if(pov === '1.00') {dU=true; dL=true;}
+                }
+                const btnU = document.getElementById('btn-12'), btnD = document.getElementById('btn-13'), btnL = document.getElementById('btn-14'), btnR = document.getElementById('btn-15');
+                if(btnU) dU ? btnU.classList.add('button-pressed') : btnU.classList.remove('button-pressed');
+                if(btnD) dD ? btnD.classList.add('button-pressed') : btnD.classList.remove('button-pressed');
+                if(btnL) dL ? btnL.classList.add('button-pressed') : btnL.classList.remove('button-pressed');
+                if(btnR) dR ? btnR.classList.add('button-pressed') : btnR.classList.remove('button-pressed');
+
+                document.getElementById('left-stick').style.left = `${((gp.axes[0] + 1) / 2) * 100}%`; document.getElementById('left-stick').style.top = `${((gp.axes[1] + 1) / 2) * 100}%`;
+                document.getElementById('right-stick').style.left = `${((gp.axes[2] + 1) / 2) * 100}%`; document.getElementById('right-stick').style.top = `${((gp.axes[3] + 1) / 2) * 100}%`;
+                document.getElementById('l2-fill').style.transform = `scaleY(${gp.buttons[6].value})`; document.getElementById('r2-fill').style.transform = `scaleY(${gp.buttons[7].value})`;
+                document.getElementById('ls-value').innerText = `X: ${gp.axes[0].toFixed(2)} | Y: ${gp.axes[1].toFixed(2)}`; document.getElementById('rs-value').innerText = `X: ${gp.axes[2].toFixed(2)} | Y: ${gp.axes[3].toFixed(2)}`;
+                document.getElementById('l2-value').innerText = gp.buttons[6].value.toFixed(2); document.getElementById('r2-value').innerText = gp.buttons[7].value.toFixed(2);
+            }
+            animationFrameId = requestAnimationFrame(updateGamepadLoop);
+        }
+
+        // C#'ın HTML'e veri göndereceği fonskyion
+        window.UpdateHardwareStats = function(batteryLevel, isCharging, connectionType, voltage, cycleCount, health) {
+            document.getElementById('battery-percent-text').innerText = batteryLevel;
+            document.getElementById('battery-level-bar').style.width = batteryLevel + '%';
+            document.getElementById('connection-type-text').innerText = connectionType + ' üzerinden bağlı';
+            document.getElementById('cell-voltage-text').innerText = voltage + ' V';
+            document.getElementById('charge-cycle-text').innerText = cycleCount;
+            document.getElementById('battery-health-text').innerText = '%' + health + ' (İyi)';
+            const sb = document.getElementById('battery-status-badge');
+            if (isCharging) sb.innerHTML = '<span class="text-green-600 bg-green-100 px-3 py-1 rounded-md">Şarj Oluyor</span>';
+            else sb.innerHTML = '<span class="text-orange-600 bg-orange-100 px-3 py-1 rounded-md">Deşarj Oluyor</span>';
+        };
+    </script>
+</body>
+</html>
